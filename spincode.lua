@@ -1,20 +1,70 @@
--- Spin Fling GUI (PC + Mobile) | LocalScript
+-- Spin Fling ALL-IN-ONE Script
+-- Place in ServerScriptService
 
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local character = player.Character or player.CharacterAdded:Wait()
-local hrp = character:WaitForChild("HumanoidRootPart")
+-- ================= CREATE REMOTE =================
+local remote = ReplicatedStorage:FindFirstChild("SpinRemote")
+if not remote then
+	remote = Instance.new("RemoteEvent")
+	remote.Name = "SpinRemote"
+	remote.Parent = ReplicatedStorage
+end
+
+-- ================= SERVER LOGIC =================
+local spinning = {}
+local SPIN_SPEED = 900 -- fling strength
+
+remote.OnServerEvent:Connect(function(player, action)
+	local char = player.Character
+	if not char then return end
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	-- START SPIN
+	if action == "START" and not spinning[player] then
+		local att = Instance.new("Attachment", hrp)
+
+		local av = Instance.new("AngularVelocity")
+		av.Attachment0 = att
+		av.AngularVelocity = Vector3.new(0, SPIN_SPEED, 0)
+		av.MaxTorque = math.huge
+		av.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
+		av.Parent = hrp
+
+		spinning[player] = {att, av}
+	end
+
+	-- STOP SPIN
+	if action == "STOP" and spinning[player] then
+		for _, obj in pairs(spinning[player]) do
+			obj:Destroy()
+		end
+		spinning[player] = nil
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	spinning[player] = nil
+end)
+
+-- ================= CLIENT SCRIPT SOURCE =================
+local clientSource = [[
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage:WaitForChild("SpinRemote")
 
 local spinning = false
-local spinSpeed = 900 -- HIGH = fling
-local attachment
-local angularVelocity
 
--- ================= GUI =================
-local gui = Instance.new("ScreenGui", player.PlayerGui)
+-- GUI
+local gui = Instance.new("ScreenGui")
 gui.Name = "SpinFlingGUI"
 gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0, 210, 0, 150)
@@ -25,17 +75,14 @@ frame.Active = true
 frame.Draggable = true
 Instance.new("UICorner", frame)
 
--- Close button
 local close = Instance.new("TextButton", frame)
 close.Size = UDim2.new(0, 26, 0, 26)
 close.Position = UDim2.new(1, -30, 0, 4)
 close.Text = "X"
 close.BackgroundColor3 = Color3.fromRGB(170,50,50)
 close.TextColor3 = Color3.new(1,1,1)
-close.BorderSizePixel = 0
 Instance.new("UICorner", close)
 
--- Button creator
 local function makeButton(text, y, color)
 	local b = Instance.new("TextButton", frame)
 	b.Size = UDim2.new(0, 170, 0, 34)
@@ -43,7 +90,6 @@ local function makeButton(text, y, color)
 	b.Text = text
 	b.BackgroundColor3 = color
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BorderSizePixel = 0
 	Instance.new("UICorner", b)
 	return b
 end
@@ -51,44 +97,42 @@ end
 local onBtn = makeButton("SPIN FLING ON", 40, Color3.fromRGB(60,170,60))
 local offBtn = makeButton("SPIN FLING OFF", 85, Color3.fromRGB(170,60,60))
 
--- ================= FLING LOGIC =================
-local function startSpin()
-	if spinning then return end
-	spinning = true
+onBtn.MouseButton1Click:Connect(function()
+	if not spinning then
+		spinning = true
+		remote:FireServer("START")
+	end
+end)
 
-	-- Ensure collisions are enabled
-	hrp.CanCollide = true
-	hrp.Massless = false
-
-	attachment = Instance.new("Attachment")
-	attachment.Parent = hrp
-
-	angularVelocity = Instance.new("AngularVelocity")
-	angularVelocity.Attachment0 = attachment
-	angularVelocity.AngularVelocity = Vector3.new(0, spinSpeed, 0)
-	angularVelocity.MaxTorque = math.huge
-	angularVelocity.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
-	angularVelocity.Parent = hrp
-end
-
-local function stopSpin()
-	spinning = false
-	if angularVelocity then angularVelocity:Destroy() end
-	if attachment then attachment:Destroy() end
-end
-
--- ================= BUTTONS =================
-onBtn.MouseButton1Click:Connect(startSpin)
-offBtn.MouseButton1Click:Connect(stopSpin)
+offBtn.MouseButton1Click:Connect(function()
+	if spinning then
+		spinning = false
+		remote:FireServer("STOP")
+	end
+end)
 
 close.MouseButton1Click:Connect(function()
-	stopSpin()
+	if spinning then
+		remote:FireServer("STOP")
+	end
 	gui:Destroy()
 end)
+]]
 
--- ================= RESPAWN SAFE =================
-player.CharacterAdded:Connect(function(newChar)
-	character = newChar
-	hrp = character:WaitForChild("HumanoidRootPart")
-	stopSpin()
+-- ================= INJECT CLIENT SCRIPT =================
+Players.PlayerAdded:Connect(function(player)
+	local ls = Instance.new("LocalScript")
+	ls.Name = "SpinFlingClient"
+	ls.Source = clientSource
+	ls.Parent = player:WaitForChild("StarterPlayer"):WaitForChild("StarterPlayerScripts")
 end)
+
+-- For players already in-game (Studio test)
+for _, player in pairs(Players:GetPlayers()) do
+	task.spawn(function()
+		local ls = Instance.new("LocalScript")
+		ls.Name = "SpinFlingClient"
+		ls.Source = clientSource
+		ls.Parent = player:WaitForChild("StarterPlayer"):WaitForChild("StarterPlayerScripts")
+	end)
+end
