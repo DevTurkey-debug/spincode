@@ -1,27 +1,25 @@
--- Spin GUI (PC + Mobile) | LocalScript
+-- Spin Fling GUI (PC + Mobile) | LocalScript
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
 
--- Spin variables
 local spinning = false
-local spinSpeed = 200 -- increase for faster spin
-local angularVelocity
+local spinSpeed = 900 -- HIGH = fling
 local attachment
+local angularVelocity
 
 -- ================= GUI =================
-local gui = Instance.new("ScreenGui")
-gui.Name = "SpinGUI"
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "SpinFlingGUI"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 200, 0, 140)
+frame.Size = UDim2.new(0, 210, 0, 150)
 frame.Position = UDim2.new(0.02, 0, 0.45, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
@@ -32,7 +30,7 @@ local close = Instance.new("TextButton", frame)
 close.Size = UDim2.new(0, 26, 0, 26)
 close.Position = UDim2.new(1, -30, 0, 4)
 close.Text = "X"
-close.BackgroundColor3 = Color3.fromRGB(170, 50, 50)
+close.BackgroundColor3 = Color3.fromRGB(170,50,50)
 close.TextColor3 = Color3.new(1,1,1)
 close.BorderSizePixel = 0
 Instance.new("UICorner", close)
@@ -40,8 +38,8 @@ Instance.new("UICorner", close)
 -- Button creator
 local function makeButton(text, y, color)
 	local b = Instance.new("TextButton", frame)
-	b.Size = UDim2.new(0, 160, 0, 32)
-	b.Position = UDim2.new(0.5, -80, 0, y)
+	b.Size = UDim2.new(0, 170, 0, 34)
+	b.Position = UDim2.new(0.5, -85, 0, y)
 	b.Text = text
 	b.BackgroundColor3 = color
 	b.TextColor3 = Color3.new(1,1,1)
@@ -50,13 +48,17 @@ local function makeButton(text, y, color)
 	return b
 end
 
-local spinOn = makeButton("Spin ON", 40, Color3.fromRGB(60, 170, 60))
-local spinOff = makeButton("Spin OFF", 80, Color3.fromRGB(170, 60, 60))
+local onBtn = makeButton("SPIN FLING ON", 40, Color3.fromRGB(60,170,60))
+local offBtn = makeButton("SPIN FLING OFF", 85, Color3.fromRGB(170,60,60))
 
--- ================= Spin Logic =================
+-- ================= FLING LOGIC =================
 local function startSpin()
 	if spinning then return end
 	spinning = true
+
+	-- Ensure collisions are enabled
+	hrp.CanCollide = true
+	hrp.Massless = false
 
 	attachment = Instance.new("Attachment")
 	attachment.Parent = hrp
@@ -75,18 +77,18 @@ local function stopSpin()
 	if attachment then attachment:Destroy() end
 end
 
--- ================= Connections =================
-spinOn.MouseButton1Click:Connect(startSpin)
-spinOff.MouseButton1Click:Connect(stopSpin)
+-- ================= BUTTONS =================
+onBtn.MouseButton1Click:Connect(startSpin)
+offBtn.MouseButton1Click:Connect(stopSpin)
 
 close.MouseButton1Click:Connect(function()
 	stopSpin()
 	gui:Destroy()
 end)
 
--- Cleanup on respawn
+-- ================= RESPAWN SAFE =================
 player.CharacterAdded:Connect(function(newChar)
-	char = newChar
-	hrp = char:WaitForChild("HumanoidRootPart")
+	character = newChar
+	hrp = character:WaitForChild("HumanoidRootPart")
 	stopSpin()
 end)
