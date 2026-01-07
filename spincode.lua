@@ -1,4 +1,4 @@
--- Spin Fling ALL-IN-ONE Script
+-- Spin Fling ALL-IN-ONE (FIXED)
 -- Place in ServerScriptService
 
 local Players = game:GetService("Players")
@@ -14,18 +14,21 @@ end
 
 -- ================= SERVER LOGIC =================
 local spinning = {}
-local SPIN_SPEED = 900 -- fling strength
+local SPIN_SPEED = 900
 
 remote.OnServerEvent:Connect(function(player, action)
+	if typeof(action) ~= "string" then return end
+
 	local char = player.Character
 	if not char then return end
 
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	-- START SPIN
+	-- START
 	if action == "START" and not spinning[player] then
-		local att = Instance.new("Attachment", hrp)
+		local att = Instance.new("Attachment")
+		att.Parent = hrp
 
 		local av = Instance.new("AngularVelocity")
 		av.Attachment0 = att
@@ -37,7 +40,7 @@ remote.OnServerEvent:Connect(function(player, action)
 		spinning[player] = {att, av}
 	end
 
-	-- STOP SPIN
+	-- STOP
 	if action == "STOP" and spinning[player] then
 		for _, obj in pairs(spinning[player]) do
 			obj:Destroy()
@@ -50,7 +53,7 @@ Players.PlayerRemoving:Connect(function(player)
 	spinning[player] = nil
 end)
 
--- ================= CLIENT SCRIPT SOURCE =================
+-- ================= CLIENT SOURCE =================
 local clientSource = [[
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -83,7 +86,7 @@ close.BackgroundColor3 = Color3.fromRGB(170,50,50)
 close.TextColor3 = Color3.new(1,1,1)
 Instance.new("UICorner", close)
 
-local function makeButton(text, y, color)
+local function button(text, y, color)
 	local b = Instance.new("TextButton", frame)
 	b.Size = UDim2.new(0, 170, 0, 34)
 	b.Position = UDim2.new(0.5, -85, 0, y)
@@ -94,8 +97,8 @@ local function makeButton(text, y, color)
 	return b
 end
 
-local onBtn = makeButton("SPIN FLING ON", 40, Color3.fromRGB(60,170,60))
-local offBtn = makeButton("SPIN FLING OFF", 85, Color3.fromRGB(170,60,60))
+local onBtn = button("SPIN FLING ON", 40, Color3.fromRGB(60,170,60))
+local offBtn = button("SPIN FLING OFF", 85, Color3.fromRGB(170,60,60))
 
 onBtn.MouseButton1Click:Connect(function()
 	if not spinning then
@@ -119,20 +122,17 @@ close.MouseButton1Click:Connect(function()
 end)
 ]]
 
--- ================= INJECT CLIENT SCRIPT =================
-Players.PlayerAdded:Connect(function(player)
+-- ================= INJECT GUI =================
+local function giveClient(player)
 	local ls = Instance.new("LocalScript")
 	ls.Name = "SpinFlingClient"
 	ls.Source = clientSource
-	ls.Parent = player:WaitForChild("StarterPlayer"):WaitForChild("StarterPlayerScripts")
-end)
+	ls.Parent = player:WaitForChild("PlayerGui")
+end
 
--- For players already in-game (Studio test)
-for _, player in pairs(Players:GetPlayers()) do
-	task.spawn(function()
-		local ls = Instance.new("LocalScript")
-		ls.Name = "SpinFlingClient"
-		ls.Source = clientSource
-		ls.Parent = player:WaitForChild("StarterPlayer"):WaitForChild("StarterPlayerScripts")
-	end)
+Players.PlayerAdded:Connect(giveClient)
+
+-- Studio test support
+for _, p in ipairs(Players:GetPlayers()) do
+	giveClient(p)
 end
